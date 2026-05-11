@@ -79,18 +79,10 @@ autoUpdater.on('download-progress', (progressObj) => {
 });
 
 autoUpdater.on('update-downloaded', (info) => {
-  sendStatusToWindow('Mise à jour téléchargée. En attente de redémarrage.');
-  const dialogOpts = {
-    type: 'info',
-    buttons: ['Redémarrer maintenant', 'Plus tard'],
-    title: 'Mise à jour prête',
-    message: 'Version ' + info.version,
-    detail: 'Une nouvelle version a été téléchargée. Redémarrez l\'application pour l\'appliquer.'
-  };
-
-  dialog.showMessageBox(dialogOpts).then((returnValue) => {
-    if (returnValue.response === 0) {
-      autoUpdater.quitAndInstall();
-    }
-  });
+  sendStatusToWindow('Mise à jour téléchargée. Installation silencieuse et redémarrage automatique en cours...');
+  
+  // Attend un court instant pour que le log s'affiche, puis installe silencieusement et relance l'app
+  setTimeout(() => {
+    autoUpdater.quitAndInstall(true, true); // true = silencieux, true = forcer le redémarrage
+  }, 1000);
 });
