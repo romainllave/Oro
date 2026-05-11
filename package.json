@@ -1,6 +1,6 @@
 {
   "name": "oro",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Une application vierge avec mise à jour automatique via GitHub",
   "main": "main.js",
   "scripts": {
