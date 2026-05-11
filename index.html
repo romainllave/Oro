@@ -7,12 +7,14 @@
       body {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         display: flex;
+        flex-direction: column;
         justify-content: center;
         align-items: center;
         height: 100vh;
         margin: 0;
         background-color: #1e1e1e;
         color: #ffffff;
+        position: relative; /* Pour positionner la version en bas */
       }
       .container {
         text-align: center;
@@ -24,12 +26,80 @@
       p {
         color: #a0a0a0;
       }
+      .version-info {
+        position: absolute;
+        bottom: 15px;
+        left: 15px;
+        font-size: 14px;
+        color: #888;
+        background: rgba(0,0,0,0.3);
+        padding: 5px 10px;
+        border-radius: 4px;
+      }
+      .update-status {
+        margin-top: 30px;
+        padding: 15px;
+        background: #2a2a2a;
+        border-radius: 8px;
+        border: 1px solid #444;
+        font-family: monospace;
+        font-size: 12px;
+        color: #4ade80;
+        width: 80%;
+        max-width: 600px;
+        text-align: left;
+        max-height: 200px;
+        overflow-y: auto;
+      }
+      .status-line {
+        margin: 4px 0;
+        border-bottom: 1px solid #333;
+        padding-bottom: 2px;
+      }
     </style>
   </head>
   <body>
     <div class="container">
       <h1>Oro</h1>
-      <p>Application vierge avec système de mise à jour automatique. <br/><br/>🎉 <b>Version 1.0.1</b> installée avec succès !</p>
+      <p>Application avec système de mise à jour automatique.</p>
     </div>
+    
+    <!-- Zone pour afficher les logs de mise à jour en temps réel -->
+    <div class="update-status" id="messages">
+      <div class="status-line">En attente des logs...</div>
+    </div>
+
+    <!-- Le petit texte en bas à gauche -->
+    <div class="version-info" id="version">Version inconnue</div>
+
+    <script>
+      const { ipcRenderer } = require('electron');
+      
+      // Mettre à jour le numéro de version en bas à gauche
+      try {
+        const packageJson = require('./package.json');
+        document.getElementById('version').innerText = 'Version ' + packageJson.version;
+      } catch (e) {
+        document.getElementById('version').innerText = 'Erreur version';
+      }
+
+      // Écouter les messages de l'auto-updater venant de main.js
+      const messagesDiv = document.getElementById('messages');
+      let firstMessage = true;
+
+      ipcRenderer.on('message', function(event, text) {
+        if (firstMessage) {
+          messagesDiv.innerHTML = ''; // Effacer le "En attente des logs"
+          firstMessage = false;
+        }
+        const msg = document.createElement('div');
+        msg.className = 'status-line';
+        msg.innerText = text;
+        messagesDiv.appendChild(msg);
+        
+        // Auto-scroll vers le bas
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      });
+    </script>
   </body>
 </html>
