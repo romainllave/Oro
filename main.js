@@ -21,11 +21,15 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 800,
     height: 600,
+    autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false
     }
   });
+  
+  // Supprime complètement le menu (File, Edit, etc.)
+  mainWindow.setMenu(null);
 
   mainWindow.loadFile('index.html');
   
