@@ -1,6 +1,6 @@
 {
   "name": "oro",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Une application vierge avec mise à jour automatique via GitHub",
   "main": "main.js",
   "scripts": {
@@ -25,7 +25,8 @@
       {
         "provider": "github",
         "owner": "romainllave",
-        "repo": "Oro"
+        "repo": "Oro",
+        "releaseType": "release"
       }
     ],
     "win": {
