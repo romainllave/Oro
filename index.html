@@ -267,11 +267,33 @@
         cursor: pointer;
         transition: transform 0.2s, opacity 0.2s;
         margin-top: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+      }
+
+      .auth-button.google {
+        background: #fff;
+        color: #000;
+        margin-top: 15px;
       }
 
       .auth-button:hover {
         transform: translateY(-2px);
         opacity: 0.9;
+      }
+
+      .auth-error {
+        color: #ef4444;
+        background: rgba(239, 68, 68, 0.1);
+        padding: 10px;
+        border-radius: 8px;
+        font-size: 13px;
+        margin-bottom: 20px;
+        display: none;
+        text-align: center;
+        border: 1px solid rgba(239, 68, 68, 0.2);
       }
 
       .auth-switch {
@@ -343,6 +365,7 @@
       <div class="panel active" id="panel-auth">
         <div class="auth-container" id="login-form">
           <h2 class="auth-title">Connexion</h2>
+          <div id="login-error" class="auth-error"></div>
           <div class="form-group">
             <label>Email</label>
             <input type="email" id="login-email" placeholder="votre@email.com">
@@ -352,11 +375,29 @@
             <input type="password" id="login-password" placeholder="••••••••">
           </div>
           <button class="auth-button" onclick="handleLogin()">Se connecter</button>
+          
+          <div style="display: flex; align-items: center; margin: 20px 0;">
+            <div style="flex: 1; height: 1px; background: rgba(255,255,255,0.1);"></div>
+            <span style="padding: 0 10px; font-size: 12px; color: #71717a;">OU</span>
+            <div style="flex: 1; height: 1px; background: rgba(255,255,255,0.1);"></div>
+          </div>
+
+          <button class="auth-button google" onclick="handleGoogleLogin()">
+            <svg width="18" height="18" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-1 .67-2.28 1.07-3.71 1.07-2.87 0-5.3-1.94-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.17-4.53z"/>
+            </svg>
+            Continuer avec Google
+          </button>
+
           <p class="auth-switch">Pas encore de compte ? <span onclick="toggleAuthForms()">S'inscrire</span></p>
         </div>
 
         <div class="auth-container" id="signup-form" style="display: none;">
           <h2 class="auth-title">Inscription</h2>
+          <div id="signup-error" class="auth-error"></div>
           <div class="form-group">
             <label>Email</label>
             <input type="email" id="signup-email" placeholder="votre@email.com">
@@ -388,25 +429,37 @@
 
     <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
     <script>
-      const { supabase, signIn, signUp, signOut, getUser, saveLastCrypto, getLastCrypto } = require('./supabase.js');
+      const { supabase, signIn, signUp, signOut, getUser, saveLastCrypto, getLastCrypto, signInWithGoogle } = require('./supabase.js');
 
       let currentSymbol = 'BINANCE:BTCUSDT';
       let tvWidget = null;
 
+      function showError(id, message) {
+        const errDiv = document.getElementById(id);
+        errDiv.innerText = message;
+        errDiv.style.display = 'block';
+        setTimeout(() => { errDiv.style.display = 'none'; }, 5000);
+      }
+
       // Initialisation
       window.onload = async () => {
-        const user = await getUser();
-        updateUIForUser(user);
-        
-        if (user) {
-          document.getElementById('navbar-wrapper').style.display = 'flex';
-          navigate(document.getElementById('nav-home'));
-          currentSymbol = await getLastCrypto();
-          initTradingView(currentSymbol);
-        } else {
-          document.getElementById('navbar-wrapper').style.display = 'none';
-          document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-          document.getElementById('panel-auth').classList.add('active');
+        try {
+          const user = await getUser();
+          updateUIForUser(user);
+          
+          if (user) {
+            document.getElementById('navbar-wrapper').style.display = 'flex';
+            navigate(document.getElementById('nav-home'));
+            currentSymbol = await getLastCrypto();
+            initTradingView(currentSymbol);
+          } else {
+            document.getElementById('navbar-wrapper').style.display = 'none';
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            document.getElementById('panel-auth').classList.add('active');
+          }
+        } catch (e) {
+          console.error("Erreur d'initialisation:", e);
+          showError('login-error', "Erreur de connexion à Supabase. Vérifiez votre configuration.");
         }
       };
 
@@ -491,10 +544,10 @@
         const email = document.getElementById('login-email').value;
         const pass = document.getElementById('login-password').value;
         const { data, error } = await signIn(email, pass);
-        if (error) alert(error.message);
+        if (error) showError('login-error', error.message);
         else {
           updateUIForUser(data.user);
-          location.reload(); // Recharger pour rafraîchir le graphique avec les prefs
+          location.reload();
         }
       }
 
@@ -502,8 +555,13 @@
         const email = document.getElementById('signup-email').value;
         const pass = document.getElementById('signup-password').value;
         const { data, error } = await signUp(email, pass);
-        if (error) alert(error.message);
+        if (error) showError('signup-error', error.message);
         else alert("Vérifiez votre email pour confirmer l'inscription !");
+      }
+
+      async function handleGoogleLogin() {
+        const { data, error } = await signInWithGoogle();
+        if (error) showError('login-error', error.message);
       }
 
       async function handleLogout() {

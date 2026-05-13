@@ -17,7 +17,23 @@ module.exports = {
 
   // Connexion
   async signIn(email, password) {
+    console.log('Tentative de connexion pour:', email);
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) console.error('Erreur signIn:', error.message);
+    return { data, error };
+  },
+
+  // Connexion Google
+  async signInWithGoogle() {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'select_account',
+        },
+      }
+    });
     return { data, error };
   },
 
