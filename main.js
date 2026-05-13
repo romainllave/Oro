@@ -1,6 +1,7 @@
 const { app, BrowserWindow, dialog } = require('electron');
 const path = require('path');
 const { autoUpdater } = require('electron-updater');
+require('dotenv').config();
 const log = require('electron-log');
 
 // Configuration du logger pour l'auto-updater
