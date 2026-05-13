@@ -4,6 +4,12 @@ const { createClient } = require('@supabase/supabase-js');
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.error('ERREUR : Les clés Supabase ne sont pas chargées ! Vérifiez votre fichier .env');
+} else {
+  console.log('Supabase : Clés chargées avec succès.');
+}
+
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 module.exports = {

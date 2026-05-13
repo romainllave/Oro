@@ -365,6 +365,11 @@
       <div class="panel active" id="panel-auth">
         <div class="auth-container" id="login-form">
           <h2 class="auth-title">Connexion</h2>
+          
+          <div id="db-status" style="font-size: 11px; text-align: center; margin-bottom: 15px; color: #71717a;">
+            Statut Base de données : <span id="db-status-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #52525b; margin-right: 4px;"></span> <span id="db-status-text">Vérification...</span>
+          </div>
+
           <div id="login-error" class="auth-error"></div>
           <div class="form-group">
             <label>Email</label>
@@ -443,6 +448,20 @@
 
       // Initialisation
       window.onload = async () => {
+        // Vérification des clés
+        const dot = document.getElementById('db-status-dot');
+        const text = document.getElementById('db-status-text');
+
+        if (!supabase.supabaseUrl || !supabase.supabaseKey) {
+          dot.style.background = '#ef4444';
+          text.innerText = 'Erreur : Clés .env manquantes';
+          text.style.color = '#ef4444';
+        } else {
+          dot.style.background = '#22c55e';
+          text.innerText = 'Connecté à Supabase';
+          text.style.color = '#22c55e';
+        }
+
         try {
           const user = await getUser();
           updateUIForUser(user);
