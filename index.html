@@ -328,7 +328,7 @@
   <body>
 
     <!-- ════════ NAVBAR ════════ -->
-    <div class="navbar-wrapper" id="navbar-wrapper" style="display: none;">
+    <div class="navbar-wrapper" id="navbar-wrapper">
       <nav class="navbar" role="navigation" aria-label="Navigation principale">
 
         <!-- Brand -->
@@ -357,12 +357,12 @@
     <!-- ════════ PANELS ════════ -->
     <div class="main-content">
       <!-- Page Accueil avec Graphique -->
-      <div class="panel" id="panel-home">
+      <div class="panel active" id="panel-home">
         <div id="tradingview_container" style="height: 100%; width: 100%;"></div>
       </div>
 
       <!-- Page Authentification -->
-      <div class="panel active" id="panel-auth">
+      <div class="panel" id="panel-auth">
         <div class="auth-container" id="login-form">
           <h2 class="auth-title">Connexion</h2>
           
@@ -433,72 +433,42 @@
 
     <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
     <script>
-      // Import Supabase service
-      const authService = require('./supabase.js');
+      let authService = null;
+      try {
+        authService = require('./supabase.js');
+      } catch(e) {}
 
       let currentSymbol = 'BINANCE:BTCUSDT';
       let tvWidget = null;
 
-      // DOM Elements
-      const elements = {
-        dbStatusDot: document.getElementById('db-status-dot'),
-        dbStatusText: document.getElementById('db-status-text'),
-        loginEmail: document.getElementById('login-email'),
-        loginPass: document.getElementById('login-password'),
-        signupEmail: document.getElementById('signup-email'),
-        signupPass: document.getElementById('signup-password'),
-        loginError: document.getElementById('login-error'),
-        signupError: document.getElementById('signup-error'),
-        navbar: document.getElementById('navbar-wrapper'),
-        profileEmail: document.getElementById('profile-email'),
-        authLabel: document.getElementById('auth-label')
-      };
-
-      function showFeedback(id, message, isError = true) {
-        const errDiv = document.getElementById(id);
-        if (!errDiv) return;
-        errDiv.innerText = message;
-        errDiv.style.display = 'block';
-        errDiv.style.background = isError ? 'rgba(239, 68, 68, 0.1)' : 'rgba(34, 197, 94, 0.1)';
-        errDiv.style.color = isError ? '#ef4444' : '#22c55e';
-        errDiv.style.borderColor = isError ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 197, 94, 0.2)';
-        setTimeout(() => { errDiv.style.display = 'none'; }, 6000);
+      function navigate(el) {
+        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        el.classList.add('active');
+        const target = el.getAttribute('data-panel');
+        if (target) document.getElementById(target).classList.add('active');
       }
 
-      // Initialisation
-      window.addEventListener('DOMContentLoaded', async () => {
-        console.log("Application initialisée.");
-        
-        // Check DB keys
-        const hasKeys = authService.supabase.supabaseUrl && authService.supabase.supabaseKey;
-        if (elements.dbStatusDot) {
-          elements.dbStatusDot.style.background = hasKeys ? '#22c55e' : '#ef4444';
-          elements.dbStatusText.innerText = hasKeys ? 'Connecté à Supabase' : 'Erreur : Clés .env manquantes';
-          elements.dbStatusText.style.color = hasKeys ? '#22c55e' : '#ef4444';
-        }
+      window.onload = async () => {
+        // Chargement du graphique immédiatement
+        initTradingView(currentSymbol);
 
-        try {
-          const user = await authService.getUser();
-          updateUI(user);
-          
-          if (user) {
-            elements.navbar.style.display = 'flex';
-            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-            document.getElementById('panel-home').classList.add('active');
-            document.getElementById('nav-home').classList.add('active');
-            
-            currentSymbol = await authService.getLastCrypto();
-            initTradingView(currentSymbol);
-          } else {
-            console.log("Aucun utilisateur connecté.");
-          }
-        } catch (e) {
-          console.error("Crash initialisation:", e);
+        if (authService) {
+          try {
+            const user = await authService.getUser();
+            updateUI(user);
+            if (user) {
+              currentSymbol = await authService.getLastCrypto();
+              // Rafraîchir si nécessaire
+              if (tvWidget && currentSymbol !== 'BINANCE:BTCUSDT') {
+                initTradingView(currentSymbol);
+              }
+            }
+          } catch (e) {}
         }
-      });
+      };
 
       function initTradingView(symbol) {
-        console.log("Chargement du graphique pour:", symbol);
         tvWidget = new TradingView.widget({
           "autosize": true,
           "symbol": symbol,
@@ -512,146 +482,58 @@
           "allow_symbol_change": true,
           "container_id": "tradingview_container"
         });
-
-        setInterval(async () => {
-          const user = await authService.getUser();
-          if (user && tvWidget) {
-            try {
-              tvWidget.onChartReady(() => {
-                const newSymbol = tvWidget.symbolInterval().symbol;
-                if (newSymbol && newSymbol !== currentSymbol) {
-                  currentSymbol = newSymbol;
-                  authService.saveLastCrypto(currentSymbol);
-                }
-              });
-            } catch(e) {}
-          }
-        }, 8000);
       }
 
       function updateUI(user) {
         const loginForm = document.getElementById('login-form');
         const signupForm = document.getElementById('signup-form');
         const profile = document.getElementById('user-profile');
-
         if (user) {
           loginForm.style.display = 'none';
           signupForm.style.display = 'none';
           profile.style.display = 'block';
-          elements.profileEmail.innerText = user.email;
-          elements.authLabel.innerText = user.email.split('@')[0];
+          document.getElementById('profile-email').innerText = user.email;
+          document.getElementById('auth-label').innerText = user.email.split('@')[0];
+        }
+      }
+
+      window.toggleAuthForms = function() {
+        const login = document.getElementById('login-form');
+        const signup = document.getElementById('signup-form');
+        if (login.style.display === 'none') {
+          login.style.display = 'block';
+          signup.style.display = 'none';
         } else {
-          loginForm.style.display = 'block';
-          signupForm.style.display = 'none';
-          profile.style.display = 'none';
-          elements.authLabel.innerText = 'Compte';
-          elements.navbar.style.display = 'none';
+          login.style.display = 'none';
+          signup.style.display = 'block';
         }
       }
 
-      // Actions Event Listeners (Instead of onclick)
-      function setupListeners() {
-        // Toggle forms
-        document.querySelectorAll('.auth-switch span').forEach(span => {
-          span.addEventListener('click', () => {
-            const login = document.getElementById('login-form');
-            const signup = document.getElementById('signup-form');
-            if (login.style.display === 'none') {
-              login.style.display = 'block';
-              signup.style.display = 'none';
-            } else {
-              login.style.display = 'none';
-              signup.style.display = 'block';
-            }
-          });
-        });
-
-        // Navigation
-        document.querySelectorAll('.nav-item').forEach(item => {
-          item.addEventListener('click', (e) => {
-            e.preventDefault();
-            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-            item.classList.add('active');
-            const target = item.getAttribute('data-panel');
-            if (target) document.getElementById(target).classList.add('active');
-          });
-        });
-      }
-
-      // LOGIN ACTION
       window.handleLogin = async function() {
-        console.log("Bouton Connexion cliqué");
-        const email = elements.loginEmail.value;
-        const pass = elements.loginPass.value;
+        if (!authService) return;
+        const email = document.getElementById('login-email').value;
+        const pass = document.getElementById('login-password').value;
+        const { data, error } = await authService.signIn(email, pass);
+        if (error) alert(error.message);
+        else location.reload();
+      }
 
-        if (!email || !pass) {
-          showFeedback('login-error', "Veuillez remplir tous les champs.");
-          return;
-        }
-
-        try {
-          const { data, error } = await authService.signIn(email, pass);
-          if (error) {
-            showFeedback('login-error', error.message);
-          } else {
-            console.log("Connexion réussie !");
-            location.reload();
-          }
-        } catch (err) {
-          showFeedback('login-error', "Erreur technique lors de la connexion.");
-          console.error(err);
-        }
-      };
-
-      // SIGNUP ACTION
       window.handleSignUp = async function() {
-        console.log("Bouton Inscription cliqué");
-        const email = elements.signupEmail.value;
-        const pass = elements.signupPass.value;
+        if (!authService) return;
+        const email = document.getElementById('signup-email').value;
+        const pass = document.getElementById('signup-password').value;
+        const { error } = await authService.signUp(email, pass);
+        if (error) alert(error.message);
+        else alert("Vérifiez vos emails !");
+      }
 
-        if (!email || !pass) {
-          showFeedback('signup-error', "Veuillez remplir tous les champs.");
-          return;
-        }
-
-        try {
-          const { data, error } = await authService.signUp(email, pass);
-          if (error) {
-            showFeedback('signup-error', error.message);
-          } else {
-            showFeedback('signup-error', "Compte créé ! Vérifiez vos emails.", false);
-          }
-        } catch (err) {
-          showFeedback('signup-error', "Erreur technique lors de l'inscription.");
-          console.error(err);
-        }
-      };
-
-      // GOOGLE LOGIN
-      window.handleGoogleLogin = async function() {
-        console.log("Bouton Google cliqué");
-        try {
-          const { error } = await authService.signInWithGoogle();
-          if (error) showFeedback('login-error', error.message);
-        } catch (err) {
-          showFeedback('login-error', "Impossible de lancer la connexion Google.");
-        }
-      };
-
-      // LOGOUT
       window.handleLogout = async function() {
-        try {
+        if (authService) {
           await authService.signOut();
           location.reload();
-        } catch (err) {
-          console.error("Erreur déconnexion:", err);
         }
-      };
+      }
 
-      setupListeners();
-
-      // Version
       try {
         const pkg = require('./package.json');
         document.getElementById('version').innerText = 'v' + pkg.version;
