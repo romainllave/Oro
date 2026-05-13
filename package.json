@@ -1,6 +1,6 @@
 {
   "name": "oro",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Une application vierge avec mise à jour automatique via GitHub",
   "main": "main.js",
   "scripts": {
@@ -11,6 +11,7 @@
   "author": "Romain Llave",
   "license": "ISC",
   "dependencies": {
+    "@supabase/supabase-js": "^2.105.4",
     "electron-log": "^5.0.0",
     "electron-updater": "^6.1.8"
   },
