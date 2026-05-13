@@ -414,7 +414,6 @@
           <button class="auth-button" onclick="handleSignUp()">Créer un compte</button>
           <p class="auth-switch">Déjà un compte ? <span onclick="toggleAuthForms()">Se connecter</span></p>
         </div>
-
         <div class="auth-container" id="user-profile" style="display: none; text-align: center;">
           <h2 class="auth-title">Mon Profil</h2>
           <p id="profile-email" style="margin-bottom: 20px; color: #a1a1aa;"></p>
@@ -434,55 +433,72 @@
 
     <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
     <script>
-      const { supabase, signIn, signUp, signOut, getUser, saveLastCrypto, getLastCrypto, signInWithGoogle } = require('./supabase.js');
+      // Import Supabase service
+      const authService = require('./supabase.js');
 
       let currentSymbol = 'BINANCE:BTCUSDT';
       let tvWidget = null;
 
-      function showError(id, message) {
+      // DOM Elements
+      const elements = {
+        dbStatusDot: document.getElementById('db-status-dot'),
+        dbStatusText: document.getElementById('db-status-text'),
+        loginEmail: document.getElementById('login-email'),
+        loginPass: document.getElementById('login-password'),
+        signupEmail: document.getElementById('signup-email'),
+        signupPass: document.getElementById('signup-password'),
+        loginError: document.getElementById('login-error'),
+        signupError: document.getElementById('signup-error'),
+        navbar: document.getElementById('navbar-wrapper'),
+        profileEmail: document.getElementById('profile-email'),
+        authLabel: document.getElementById('auth-label')
+      };
+
+      function showFeedback(id, message, isError = true) {
         const errDiv = document.getElementById(id);
+        if (!errDiv) return;
         errDiv.innerText = message;
         errDiv.style.display = 'block';
-        setTimeout(() => { errDiv.style.display = 'none'; }, 5000);
+        errDiv.style.background = isError ? 'rgba(239, 68, 68, 0.1)' : 'rgba(34, 197, 94, 0.1)';
+        errDiv.style.color = isError ? '#ef4444' : '#22c55e';
+        errDiv.style.borderColor = isError ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 197, 94, 0.2)';
+        setTimeout(() => { errDiv.style.display = 'none'; }, 6000);
       }
 
       // Initialisation
-      window.onload = async () => {
-        // Vérification des clés
-        const dot = document.getElementById('db-status-dot');
-        const text = document.getElementById('db-status-text');
-
-        if (!supabase.supabaseUrl || !supabase.supabaseKey) {
-          dot.style.background = '#ef4444';
-          text.innerText = 'Erreur : Clés .env manquantes';
-          text.style.color = '#ef4444';
-        } else {
-          dot.style.background = '#22c55e';
-          text.innerText = 'Connecté à Supabase';
-          text.style.color = '#22c55e';
+      window.addEventListener('DOMContentLoaded', async () => {
+        console.log("Application initialisée.");
+        
+        // Check DB keys
+        const hasKeys = authService.supabase.supabaseUrl && authService.supabase.supabaseKey;
+        if (elements.dbStatusDot) {
+          elements.dbStatusDot.style.background = hasKeys ? '#22c55e' : '#ef4444';
+          elements.dbStatusText.innerText = hasKeys ? 'Connecté à Supabase' : 'Erreur : Clés .env manquantes';
+          elements.dbStatusText.style.color = hasKeys ? '#22c55e' : '#ef4444';
         }
 
         try {
-          const user = await getUser();
-          updateUIForUser(user);
+          const user = await authService.getUser();
+          updateUI(user);
           
           if (user) {
-            document.getElementById('navbar-wrapper').style.display = 'flex';
-            navigate(document.getElementById('nav-home'));
-            currentSymbol = await getLastCrypto();
+            elements.navbar.style.display = 'flex';
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            document.getElementById('panel-home').classList.add('active');
+            document.getElementById('nav-home').classList.add('active');
+            
+            currentSymbol = await authService.getLastCrypto();
             initTradingView(currentSymbol);
           } else {
-            document.getElementById('navbar-wrapper').style.display = 'none';
-            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-            document.getElementById('panel-auth').classList.add('active');
+            console.log("Aucun utilisateur connecté.");
           }
         } catch (e) {
-          console.error("Erreur d'initialisation:", e);
-          showError('login-error', "Erreur de connexion à Supabase. Vérifiez votre configuration.");
+          console.error("Crash initialisation:", e);
         }
-      };
+      });
 
       function initTradingView(symbol) {
+        console.log("Chargement du graphique pour:", symbol);
         tvWidget = new TradingView.widget({
           "autosize": true,
           "symbol": symbol,
@@ -497,97 +513,143 @@
           "container_id": "tradingview_container"
         });
 
-        // Sauvegarder périodiquement le symbole actuel si l'utilisateur est connecté
         setInterval(async () => {
-          const user = await getUser();
-          if (user && tvWidget && tvWidget.activeChart) {
+          const user = await authService.getUser();
+          if (user && tvWidget) {
             try {
-              // Note: L'API du widget TradingView est asynchrone pour récupérer le symbole
               tvWidget.onChartReady(() => {
                 const newSymbol = tvWidget.symbolInterval().symbol;
                 if (newSymbol && newSymbol !== currentSymbol) {
                   currentSymbol = newSymbol;
-                  saveLastCrypto(currentSymbol);
+                  authService.saveLastCrypto(currentSymbol);
                 }
               });
             } catch(e) {}
           }
-        }, 5000);
+        }, 8000);
       }
 
-      // Navigation
-      function navigate(el) {
-        event.preventDefault();
-        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-        el.classList.add('active');
-        const target = el.getAttribute('data-panel');
-        if (target) document.getElementById(target).classList.add('active');
-      }
-
-      // Auth UI Toggle
-      function toggleAuthForms() {
-        const login = document.getElementById('login-form');
-        const signup = document.getElementById('signup-form');
-        if (login.style.display === 'none') {
-          login.style.display = 'block';
-          signup.style.display = 'none';
-        } else {
-          login.style.display = 'none';
-          signup.style.display = 'block';
-        }
-      }
-
-      function updateUIForUser(user) {
+      function updateUI(user) {
         const loginForm = document.getElementById('login-form');
         const signupForm = document.getElementById('signup-form');
         const profile = document.getElementById('user-profile');
-        const authLabel = document.getElementById('auth-label');
 
         if (user) {
           loginForm.style.display = 'none';
           signupForm.style.display = 'none';
           profile.style.display = 'block';
-          document.getElementById('profile-email').innerText = user.email;
-          authLabel.innerText = user.email.split('@')[0];
+          elements.profileEmail.innerText = user.email;
+          elements.authLabel.innerText = user.email.split('@')[0];
         } else {
           loginForm.style.display = 'block';
           signupForm.style.display = 'none';
           profile.style.display = 'none';
-          authLabel.innerText = 'Compte';
+          elements.authLabel.innerText = 'Compte';
+          elements.navbar.style.display = 'none';
         }
       }
 
-      // Auth Actions
-      async function handleLogin() {
-        const email = document.getElementById('login-email').value;
-        const pass = document.getElementById('login-password').value;
-        const { data, error } = await signIn(email, pass);
-        if (error) showError('login-error', error.message);
-        else {
-          updateUIForUser(data.user);
+      // Actions Event Listeners (Instead of onclick)
+      function setupListeners() {
+        // Toggle forms
+        document.querySelectorAll('.auth-switch span').forEach(span => {
+          span.addEventListener('click', () => {
+            const login = document.getElementById('login-form');
+            const signup = document.getElementById('signup-form');
+            if (login.style.display === 'none') {
+              login.style.display = 'block';
+              signup.style.display = 'none';
+            } else {
+              login.style.display = 'none';
+              signup.style.display = 'block';
+            }
+          });
+        });
+
+        // Navigation
+        document.querySelectorAll('.nav-item').forEach(item => {
+          item.addEventListener('click', (e) => {
+            e.preventDefault();
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            item.classList.add('active');
+            const target = item.getAttribute('data-panel');
+            if (target) document.getElementById(target).classList.add('active');
+          });
+        });
+      }
+
+      // LOGIN ACTION
+      window.handleLogin = async function() {
+        console.log("Bouton Connexion cliqué");
+        const email = elements.loginEmail.value;
+        const pass = elements.loginPass.value;
+
+        if (!email || !pass) {
+          showFeedback('login-error', "Veuillez remplir tous les champs.");
+          return;
+        }
+
+        try {
+          const { data, error } = await authService.signIn(email, pass);
+          if (error) {
+            showFeedback('login-error', error.message);
+          } else {
+            console.log("Connexion réussie !");
+            location.reload();
+          }
+        } catch (err) {
+          showFeedback('login-error', "Erreur technique lors de la connexion.");
+          console.error(err);
+        }
+      };
+
+      // SIGNUP ACTION
+      window.handleSignUp = async function() {
+        console.log("Bouton Inscription cliqué");
+        const email = elements.signupEmail.value;
+        const pass = elements.signupPass.value;
+
+        if (!email || !pass) {
+          showFeedback('signup-error', "Veuillez remplir tous les champs.");
+          return;
+        }
+
+        try {
+          const { data, error } = await authService.signUp(email, pass);
+          if (error) {
+            showFeedback('signup-error', error.message);
+          } else {
+            showFeedback('signup-error', "Compte créé ! Vérifiez vos emails.", false);
+          }
+        } catch (err) {
+          showFeedback('signup-error', "Erreur technique lors de l'inscription.");
+          console.error(err);
+        }
+      };
+
+      // GOOGLE LOGIN
+      window.handleGoogleLogin = async function() {
+        console.log("Bouton Google cliqué");
+        try {
+          const { error } = await authService.signInWithGoogle();
+          if (error) showFeedback('login-error', error.message);
+        } catch (err) {
+          showFeedback('login-error', "Impossible de lancer la connexion Google.");
+        }
+      };
+
+      // LOGOUT
+      window.handleLogout = async function() {
+        try {
+          await authService.signOut();
           location.reload();
+        } catch (err) {
+          console.error("Erreur déconnexion:", err);
         }
-      }
+      };
 
-      async function handleSignUp() {
-        const email = document.getElementById('signup-email').value;
-        const pass = document.getElementById('signup-password').value;
-        const { data, error } = await signUp(email, pass);
-        if (error) showError('signup-error', error.message);
-        else alert("Vérifiez votre email pour confirmer l'inscription !");
-      }
-
-      async function handleGoogleLogin() {
-        const { data, error } = await signInWithGoogle();
-        if (error) showError('login-error', error.message);
-      }
-
-      async function handleLogout() {
-        const { error } = await signOut();
-        if (error) alert(error.message);
-        else location.reload();
-      }
+      setupListeners();
 
       // Version
       try {
