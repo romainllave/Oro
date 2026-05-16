@@ -1,5 +1,4 @@
-name: Build and Release
-
+name: "Release"
 on:
   push:
     branches:
@@ -8,24 +7,33 @@ on:
 
 jobs:
   release:
-    runs-on: windows-latest
-
     permissions:
       contents: write
-
+    runs-on: windows-latest
     steps:
-      - name: Check out Git repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Install Dependencies
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend dependencies
         run: npm install
 
-      - name: Build & Publish Release
+      - name: Build and Release Tauri App
+        uses: tauri-apps/tauri-action@v0
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run dist
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Décommentez ces lignes une fois que vous avez généré vos clés updater
+          # TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          # TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+        with:
+          tagName: app-v__VERSION__
+          releaseName: "Oro v__VERSION__"
+          releaseBody: "Mise à jour automatique déployée par GitHub Actions."
+          releaseDraft: false
+          prerelease: false
